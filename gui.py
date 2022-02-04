@@ -26,17 +26,11 @@ if not os.path.exists(res_path):
 
 class WorkerSignals(QObject):
     '''
-    Defines the signals available from a running worker thread.
-    Supported signals are:
-    finished: No data
+    Defines the signals available from a running worker thread. Supported signals are:
     error: tuple (exctype, value, traceback.format_exc() )
-    result: object data returned from processing, anything
     progress: int indicating % progress
-
     '''
-    finished = pyqtSignal()
     error = pyqtSignal(tuple)
-    result = pyqtSignal(object)
     progress = pyqtSignal(str)
 
 class Worker(QRunnable):
@@ -141,14 +135,20 @@ class Ui_MainWindow(object):
         if not os.path.isfile(h5_model_path):
             miss_list += "\n  -DEPTH EST MODEL ~ 400MB"
         if miss_list == "":
-            NOTIF = "Everything is ready!"
+            NOTIF = "Everything is ready!\n\nBrowse the picture and Start the process!"
         else:
             NOTIF = "Files to be downloaded:" + miss_list
         self.NTF_LBL.setText(NOTIF)
     
     def downloader(self, progress_callback):
-        dl_stat = "Downloading started:"
+        self.CHECK_BTN.setEnabled(False)
+        self.DL_BTN.setEnabled(False)
+        self.BRW_BTN.setEnabled(False)
+        self.START_BTN.setEnabled(False)
+        dl_stat = "|| DL Process ||"
         if not os.path.isfile(config_Path):
+            dl_stat += "\nYOLO CONFIG file download started..."
+            progress_callback.emit(dl_stat)
             try:
                 temporary_downloader(config_Path, "https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg")
                 dl_stat += "\n  -YOLO CONFIG file downloaded."
@@ -156,6 +156,8 @@ class Ui_MainWindow(object):
                 dl_stat += "\n  -An exception occurred while downloading YOLO CONFIG file."
         progress_callback.emit(dl_stat)
         if not os.path.isfile(labels_Path):
+            dl_stat += "\nYOLO LABELS file download started..."
+            progress_callback.emit(dl_stat)
             try:
                 temporary_downloader(labels_Path, "https://raw.githubusercontent.com/pjreddie/darknet/a028bfa0da8eb96583c05d5bd00f4bfb9543f2da/data/coco.names")
                 dl_stat += "\n  -YOLO LABELS file downloaded."
@@ -163,6 +165,8 @@ class Ui_MainWindow(object):
                 dl_stat += "\n  -An exception occurred while downloading YOLO LABELS file."
         progress_callback.emit(dl_stat)
         if not os.path.isfile(weights_Path):
+            dl_stat += "\nYOLO W8s file download started..."
+            progress_callback.emit(dl_stat)
             try:
                 temporary_downloader(weights_Path, "https://pjreddie.com/media/files/yolov3.weights")
                 dl_stat += "\n  -YOLO W8s file downloaded."
@@ -170,6 +174,8 @@ class Ui_MainWindow(object):
                 dl_stat += "\n  -An exception occurred while downloading YOLO W8s file."
         progress_callback.emit(dl_stat)
         if not os.path.isfile(h5_model_path):
+            dl_stat += "\nModel download started..."
+            progress_callback.emit(dl_stat)
             try:
                 temporary_downloader(zip_model_path, "https://s20.picofile.com/d/8447340318/e94262e5-ca04-42f9-84cc-a588c7404960/estimator_model.zip")
                 dl_stat += "\n  -Model downloaded. Extraction started..."
@@ -180,8 +186,12 @@ class Ui_MainWindow(object):
             except:
                 dl_stat += "\n  -An exception occurred while downloading Model file."
         progress_callback.emit(dl_stat)
-        dl_stat += "\nAll downloads done!"
+        dl_stat += "\nAll files are ready!\n\nBrowse the picture and Start the process!"
         progress_callback.emit(dl_stat)
+        self.CHECK_BTN.setEnabled(True)
+        self.DL_BTN.setEnabled(True)
+        self.BRW_BTN.setEnabled(True)
+        self.START_BTN.setEnabled(True)
 
     def download_stat_updater(self, stat):
         self.NTF_LBL.setText(stat)
