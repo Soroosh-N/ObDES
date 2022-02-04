@@ -2,12 +2,17 @@ from fileinput import filename
 import os, sys, time, urllib.request, traceback
 import cv2
 import zipfile
+from cv2 import COLOR_GRAY2RGB
 import numpy as np
 import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import * 
 from PyQt5.QtCore import *
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+import tensorflow as tf
+from tensorflow import keras
 
 TITLE = "ObDES: Object Detection and depth EStimation"
 
@@ -93,8 +98,9 @@ class Ui_MainWindow(object):
 
         self.START_BTN = QtWidgets.QPushButton(self.centralwidget)
         self.START_BTN.setGeometry(QtCore.QRect(10, 210, 281, 51))
-        self.START_BTN.setStyleSheet("background-color: rgb(0, 120, 0); color: rgb(255, 255, 255);")
+        self.START_BTN.setStyleSheet("background-color: rgb(0, 150, 0); color: rgb(255, 255, 255);")
         self.START_BTN.setObjectName("START_BTN")
+        self.START_BTN.setEnabled(False)
 
         self.NTF_LBL = QtWidgets.QLabel(self.centralwidget)
         self.NTF_LBL.setGeometry(QtCore.QRect(10, 270, 281, 251))
@@ -193,29 +199,149 @@ class Ui_MainWindow(object):
         self.CHECK_BTN.setEnabled(True)
         self.DL_BTN.setEnabled(True)
         self.BRW_BTN.setEnabled(True)
-        self.START_BTN.setEnabled(True)
 
-    def download_stat_updater(self, stat):
+    def stat_updater(self, stat):
         self.NTF_LBL.setText(stat)
     
     def dl_function(self):
         worker = Worker(self.downloader)
-        worker.signals.progress.connect(self.download_stat_updater)
+        worker.signals.progress.connect(self.stat_updater)
         self.NTF_LBL.setText(" ")
         self.threadpool.start(worker)
 
     def get_image(self):
-        global file_path
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(None, 'Single File', QtCore.QDir.rootPath() , "Image files (*.jpg *.png)")
-        self.PH_LBL.setPixmap(QtGui.QPixmap(file_path))
-        self.NTF_LBL.setText("File path:\n" + file_path)
+        global image_path
+        # os.getcwd()
+        # QtCore.QDir.rootPath()
+        image_path, _ = QtWidgets.QFileDialog.getOpenFileName(None, 'Single File',  os.getcwd(), "Image files (*.jpg *.png)")
+        self.PH_LBL.setPixmap(QtGui.QPixmap(image_path))
+        self.NTF_LBL.setText("File path:\n" + image_path)
+        self.START_BTN.setEnabled(True)
     
     def do_the_job(self):
-        print(file_path)
-        # worker = Worker(self.downloader)
-        # worker.signals.progress.connect(self.download_stat_updater)
-        # self.NTF_LBL.setText(" ")
-        # self.threadpool.start(worker)
+        worker = Worker(self.main_process)
+        worker.signals.progress.connect(self.stat_updater)
+        self.NTF_LBL.setText(" ")
+        self.threadpool.start(worker)
+
+    def main_process(self, progress_callback):
+        self.CHECK_BTN.setEnabled(False)
+        self.DL_BTN.setEnabled(False)
+        self.BRW_BTN.setEnabled(False)
+        self.START_BTN.setEnabled(False)
+        pr_stat = "Buttons disabled."
+        progress_callback.emit(pr_stat)
+        accepted_confidence = 0.3
+        threshold = 0.3
+        # load the COCO class labels our YOLO model was trained on
+        LABELS = open(labels_Path).read().strip().split("\n")
+        # initialize a list of colors to represent each possible class label
+        np.random.seed(42)
+        COLORS = np.random.randint(0, 255, size=(len(LABELS), 3), dtype="uint8")
+
+        # load our YOLO object detector trained on COCO dataset (80 classes)
+        pr_stat += "\nLoading YOLOv3 started..."
+        progress_callback.emit(pr_stat)
+        t = time.time()
+        net = cv2.dnn.readNetFromDarknet(config_Path, weights_Path)
+        # load our input image and grab its spatial dimensions
+        rgb = cv2.imread(image_path)
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+        rgb_display = np.copy(rgb)
+        (H, W) = rgb.shape[:2]
+        # determine only the *output* layer names that we need from YOLO
+        # ln stands for LayerName
+        ln = net.getLayerNames()
+        if net.getUnconnectedOutLayers().ndim == 1:
+            ln = [ln[i - 1] for i in net.getUnconnectedOutLayers()]
+        else:
+            ln = [ln[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+        # construct a blob from the input image and then perform a forward
+        # pass of the YOLO object detector, giving us our bounding boxes and
+        # associated probabilities
+        blob = cv2.dnn.blobFromImage(rgb, 1 / 255.0, (416, 416), swapRB=True, crop=False)
+        net.setInput(blob)
+        layerOutputs = net.forward(ln)
+        pr_stat += "\nYOLO loading time: " + str(int((time.time() - t)*10)/10)
+        progress_callback.emit(pr_stat)
+        # initialize
+        boxes = []
+        confidences = []
+        classIDs = []
+        # loop over each of the layer outputs
+        for output in layerOutputs:
+            # loop over each of the detections
+            for detection in output:
+                scores = detection[5:]
+                classID = np.argmax(scores)
+                confidence = scores[classID]
+                # filter out weak predictions by ensuring the detected probability is greater than the minimum probability
+                # extract the class ID and confidence (i.e., probability) of the current object detection
+                if confidence > accepted_confidence:
+                    # scale the bounding box coordinates back relative to the size of the image, keeping in mind that YOLO actually
+                    # # returns the center (x, y)-coordinates of the bounding box followed by the boxes' width and height
+                    box = detection[0:4] * np.array([W, H, W, H])
+                    (centerX, centerY, width, height) = box.astype("int")
+                    # use the center (x, y)-coordinates to derive the top and and left corner of the bounding box
+                    x = int(centerX - (width / 2))
+                    y = int(centerY - (height / 2))
+                    # update our list of bounding box coordinates, confidences and class IDs
+                    boxes.append([x, y, int(width), int(height)])
+                    confidences.append(float(confidence))
+                    classIDs.append(classID)
+        
+        # apply non-maxima suppression to suppress weak, overlapping bounding boxes
+        idxs = cv2.dnn.NMSBoxes(boxes, confidences, confidence, threshold)
+        pr_stat += "\nYOLO job is done.\nStarting tensorflow (Be patient)."
+        progress_callback.emit(pr_stat)
+
+        # ESTIMATOR output:
+        # load trained model:
+        estimator = keras.models.load_model(h5_model_path)
+        pr_stat += "\nEstimator model loaded."
+        progress_callback.emit(pr_stat)
+        # Normal the input images:
+        normalizer = lambda input_image: (input_image / 255)
+        # Reshape the input images using tensorflow:
+        tf_resizer = lambda input_image: tf.image.resize(input_image, [128, 128], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+        # Reshape the input images using openCV:
+        resizer = lambda input_image: cv2.resize(input_image, (128, 128))
+
+        # prepare RGB image for estimation:
+        rgb_in = normalizer(rgb)
+        rgb_in = resizer(rgb_in)
+        # Estimation of depth
+        es_out = estimator(rgb_in[tf.newaxis, ...], training=False)
+        es_out = cv2.resize(np.array(es_out).reshape(128, 128), (rgb.shape[1], rgb.shape[0]))
+        pr_stat += "\nEstimation is done."
+        progress_callback.emit(pr_stat)
+
+        # ensure at least one detection exists
+        if len(idxs) > 0:
+            # loop over the indexes we are keeping
+            for i in idxs.flatten():
+                # extract the bounding box coordinates
+                (x, y) = (boxes[i][0], boxes[i][1])
+                (w, h) = (boxes[i][2], boxes[i][3])
+                es_box_mean = np.mean(es_out[y:y+h, x:x+w])
+                # draw a bounding box rectangle and label on the image
+                color = [int(c) for c in COLORS[classIDs[i]]]
+                cv2.rectangle(rgb, (x, y), (x + w, y + h), color, 2)
+                text = "{}: Conf={:.4f}, Depth={:.2f}".format(LABELS[classIDs[i]], confidences[i], es_box_mean)
+                cv2.putText(rgb, text, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        pr_stat += "\nSaving the output images in root folder..."
+        progress_callback.emit(pr_stat)
+        cv2.imwrite("out_dep.png", es_out*255)
+        cv2.imwrite("out_rgb.png", cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+        self.PH_LBL.setPixmap(QtGui.QPixmap("out_rgb.png"))
+        pr_stat += "\n -out_dep.png: Depth estimated image"
+        pr_stat += "\n -out_rgb.png: RGB output image"
+        pr_stat += "\n\nFinal image can be seen on the right imageshow."
+        progress_callback.emit(pr_stat)
+        self.CHECK_BTN.setEnabled(True)
+        self.DL_BTN.setEnabled(True)
+        self.BRW_BTN.setEnabled(True)
+        self.START_BTN.setEnabled(True)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
