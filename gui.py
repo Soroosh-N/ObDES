@@ -1,11 +1,12 @@
-import os, time, urllib.request, traceback
+from fileinput import filename
+import os, sys, time, urllib.request, traceback
 import cv2
 import zipfile
 import numpy as np
 import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import * 
 from PyQt5.QtCore import *
 
 TITLE = "ObDES: Object Detection and depth EStimation"
@@ -122,9 +123,10 @@ class Ui_MainWindow(object):
 
         self.CHECK_BTN.clicked.connect(self.check_function)
         self.DL_BTN.clicked.connect(self.dl_function)
+        self.BRW_BTN.clicked.connect(self.get_image)
+        self.START_BTN.clicked.connect(self.do_the_job)
 
     def check_function(self):
-        self.NTF_LBL.setText(" ")
         miss_list = ""
         if not os.path.isfile(config_Path):
             miss_list += "\n  -YOLO CONFIG FILE < 10KB"
@@ -199,10 +201,21 @@ class Ui_MainWindow(object):
     def dl_function(self):
         worker = Worker(self.downloader)
         worker.signals.progress.connect(self.download_stat_updater)
-        # Execute
         self.NTF_LBL.setText(" ")
         self.threadpool.start(worker)
-        # self.PH_LBL.setPixmap(QtGui.QPixmap("test.png"))
+
+    def get_image(self):
+        global file_path
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(None, 'Single File', QtCore.QDir.rootPath() , "Image files (*.jpg *.png)")
+        self.PH_LBL.setPixmap(QtGui.QPixmap(file_path))
+        self.NTF_LBL.setText("File path:\n" + file_path)
+    
+    def do_the_job(self):
+        print(file_path)
+        # worker = Worker(self.downloader)
+        # worker.signals.progress.connect(self.download_stat_updater)
+        # self.NTF_LBL.setText(" ")
+        # self.threadpool.start(worker)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
