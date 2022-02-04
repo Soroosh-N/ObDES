@@ -6,3 +6,5 @@ test2.py
 test.py
 old_ObDES.py
 .qt_for_python/uic/main.py
+test3.py
+resources/_yolov3.cfg

@@ -1,5 +1,76 @@
+import os, time, urllib.request, traceback
+import cv2
+import zipfile
+import numpy as np
+import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 
+TITLE = "ObDES: Object Detection and depth EStimation"
+
+res_path = "resources/"
+weights_Path = res_path + "yolov3.weights"
+config_Path = res_path + "yolov3.cfg"
+labels_Path = res_path + "coco.names"
+name_of_model = "estimator_model"
+zip_model_path = res_path + name_of_model + ".zip"
+h5_model_path = res_path + name_of_model + ".h5"
+
+def temporary_downloader(path, link):
+    urllib.request.urlretrieve(link, path)
+
+if not os.path.exists(res_path):
+    os.mkdir(res_path)
+
+class WorkerSignals(QObject):
+    '''
+    Defines the signals available from a running worker thread.
+    Supported signals are:
+    finished: No data
+    error: tuple (exctype, value, traceback.format_exc() )
+    result: object data returned from processing, anything
+    progress: int indicating % progress
+
+    '''
+    finished = pyqtSignal()
+    error = pyqtSignal(tuple)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(str)
+
+class Worker(QRunnable):
+    '''
+    Worker thread
+    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
+    :param callback: The function callback to run on this worker thread. Supplied args and kwargs will be passed through to the runner.
+    :type callback: function
+    :param args: Arguments to pass to the callback function
+    :param kwargs: Keywords to pass to the callback function
+
+    '''
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+        # Add the callback to our kwargs
+        self.kwargs['progress_callback'] = self.signals.progress
+
+    @pyqtSlot()
+    def run(self):
+        '''
+        Initialise the runner function with passed args, kwargs.
+        '''
+        # Retrieve args/kwargs here; and fire processing using them
+        try:
+            self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.print_exc()
+            exctype, value = sys.exc_info()[:2]
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -48,6 +119,8 @@ class Ui_MainWindow(object):
         self.PH_LBL.setScaledContents(True)
         self.PH_LBL.setObjectName("PH_LBL")
 
+        self.threadpool = QThreadPool()
+
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -57,10 +130,69 @@ class Ui_MainWindow(object):
         self.DL_BTN.clicked.connect(self.dl_function)
 
     def check_function(self):
-        self.PH_LBL.setPixmap(QtGui.QPixmap("test.png"))
+        self.NTF_LBL.setText(" ")
+        miss_list = ""
+        if not os.path.isfile(config_Path):
+            miss_list += "\n  -YOLO CONFIG FILE < 10KB"
+        if not os.path.isfile(labels_Path):
+            miss_list += "\n  -YOLO LABELS FILE < 1KB"
+        if not os.path.isfile(weights_Path):
+            miss_list += "\n  -YOLO W8s FILE ~ 240MB"
+        if not os.path.isfile(h5_model_path):
+            miss_list += "\n  -DEPTH EST MODEL ~ 400MB"
+        if miss_list == "":
+            NOTIF = "Everything is ready!"
+        else:
+            NOTIF = "Files to be downloaded:" + miss_list
+        self.NTF_LBL.setText(NOTIF)
+    
+    def downloader(self, progress_callback):
+        dl_stat = "Downloading started:"
+        if not os.path.isfile(config_Path):
+            try:
+                temporary_downloader(config_Path, "https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg")
+                dl_stat += "\n  -YOLO CONFIG file downloaded."
+            except:
+                dl_stat += "\n  -An exception occurred while downloading YOLO CONFIG file."
+        progress_callback.emit(dl_stat)
+        if not os.path.isfile(labels_Path):
+            try:
+                temporary_downloader(labels_Path, "https://raw.githubusercontent.com/pjreddie/darknet/a028bfa0da8eb96583c05d5bd00f4bfb9543f2da/data/coco.names")
+                dl_stat += "\n  -YOLO LABELS file downloaded."
+            except:
+                dl_stat += "\n  -An exception occurred while downloading YOLO LABELS file."
+        progress_callback.emit(dl_stat)
+        if not os.path.isfile(weights_Path):
+            try:
+                temporary_downloader(weights_Path, "https://pjreddie.com/media/files/yolov3.weights")
+                dl_stat += "\n  -YOLO W8s file downloaded."
+            except:
+                dl_stat += "\n  -An exception occurred while downloading YOLO W8s file."
+        progress_callback.emit(dl_stat)
+        if not os.path.isfile(h5_model_path):
+            try:
+                temporary_downloader(zip_model_path, "https://s20.picofile.com/d/8447340318/e94262e5-ca04-42f9-84cc-a588c7404960/estimator_model.zip")
+                dl_stat += "\n  -Model downloaded. Extraction started..."
+                progress_callback.emit(dl_stat)
+                with zipfile.ZipFile(zip_model_path) as zf:
+                    zf.extractall(res_path)
+                    dl_stat += "\n  -Extraction finished."
+            except:
+                dl_stat += "\n  -An exception occurred while downloading Model file."
+        progress_callback.emit(dl_stat)
+        dl_stat += "\nAll downloads done!"
+        progress_callback.emit(dl_stat)
 
+    def download_stat_updater(self, stat):
+        self.NTF_LBL.setText(stat)
+    
     def dl_function(self):
-        self.PH_LBL.setPixmap(QtGui.QPixmap("test.png"))
+        worker = Worker(self.downloader)
+        worker.signals.progress.connect(self.download_stat_updater)
+        # Execute
+        self.NTF_LBL.setText(" ")
+        self.threadpool.start(worker)
+        # self.PH_LBL.setPixmap(QtGui.QPixmap("test.png"))
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
