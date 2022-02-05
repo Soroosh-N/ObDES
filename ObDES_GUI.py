@@ -1,10 +1,7 @@
-from fileinput import filename
 import os, sys, time, urllib.request, traceback
 import cv2
 import zipfile
-from cv2 import COLOR_GRAY2RGB
 import numpy as np
-import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import * 
@@ -14,7 +11,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import tensorflow as tf
 from tensorflow import keras
 
-TITLE = "ObDES: Object Detection and depth EStimation"
+# TITLE = "ObDES: Object Detection and depth EStimation"
 
 res_path = "resources/"
 weights_Path = res_path + "yolov3.weights"
@@ -153,7 +150,7 @@ class Ui_MainWindow(object):
         self.DL_BTN.setEnabled(False)
         self.BRW_BTN.setEnabled(False)
         self.START_BTN.setEnabled(False)
-        dl_stat = "|| DL Process ||"
+        dl_stat = "DL Process:"
         if not os.path.isfile(config_Path):
             dl_stat += "\nYOLO CONFIG file download started..."
             progress_callback.emit(dl_stat)
