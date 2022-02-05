@@ -15,10 +15,10 @@ Supervisors: <a target="_blank" href="http://ee.sharif.edu/~fatemizadeh/">Prof. 
 
 ## 📝 Table of Contents
 
-- [About](#about)
+- [About project](#about)
 - [Getting Started](#getting_started)
 - [Some results](#results)
-- [Authors](#authors)
+- [Contributors](#authors)
 
 ## About project:<a id = "about"></a>
 
