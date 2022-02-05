@@ -10,7 +10,7 @@
 <p align="center">
 Sharif University of Technology<br/>
 Deep Learning course project - Fall 1400<br/>
-Supervisors: <a href="http://ee.sharif.edu/~fatemizadeh/">Prof. Emad Fatemizadeh</a> - <a href="http://ee.sharif.edu/~behrad.ahmadpour/">Behrad Ahmadpour</a><br/>
+Supervisors: <a target="_blank" href="http://ee.sharif.edu/~fatemizadeh/">Prof. Emad Fatemizadeh</a> - <a target="_blank" href="http://ee.sharif.edu/~behrad.ahmadpour/">Behrad Ahmadpour</a><br/>
 </p>
 
 ## 📝 Table of Contents
@@ -20,11 +20,11 @@ Supervisors: <a href="http://ee.sharif.edu/~fatemizadeh/">Prof. Emad Fatemizadeh
 - [Some results](#results)
 - [Authors](#authors)
 
-## About project:<a name = "about"></a>
+## About project:<a id = "about"></a>
 
 In this project we created a PyQt5 base application which will take a photo as input and will produce the result which is the same photo with bounding boxes around the objects. For each of those bounding boxes, there will be a lable of what category that object belongs to? with what confidency? and how far that object is from the camera?<br/> (In scale of 0 to 1 [ 0: so close, 1: far far away])
 
-## Getting Started: <a name = "getting_started"></a>
+## Getting Started: <a id = "getting_started"></a>
 
 On this project we have 3 main files:
 * ObDES_colab_notebook.ipynb : This is the first and the most complete file of the project. It runs on the Google colab and it's not related to the GUI section of project. But it will create one of the most important files which is necessary to make GUI section able to work: Estimation model w8s (weights).<br/> This notebook file consists of 3 main part. In the first part we use NYUv2 dataset to produce enough pictures to learn the estimation model which is an autoencoder network.<br/>In second part of the file, we will train the estimation model by using the created pictures in the previous part. Then we save the created model as estiamtion_model.h5 in the resources directory.<br/>
@@ -44,7 +44,7 @@ PyQt        => 5.9.7
 Tensorflow  => 2.7.0
 ```
 
-## Some results: <a name = "results"></a>
+## Some results: <a id = "results"></a>
 
 Out model works fine with almost every picture. But it will be so much better if we train it with more pictures. We train estimator model only with 1449 pictures of NYUv2 dataset and under 60 epochs. This is absolutely nothing against the coco dataset which has about 338 k pictures. By the way, our current model has great capabilities. We bring some results here as examples:
 <table style="text-align:center;">
@@ -70,6 +70,6 @@ Let's bring one of these examples in big size:
 <p align="center"><img style="border-radius:10px;" src="pics/test3_dep_big.png" alt="test3_dep"></p>
 <p align="center"><img style="border-radius:10px;" src="pics/test3_rgb_big.png" alt="test3_rgb"></p>
 
-## Contributors: <a name = "authors"></a>
+## Contributors: <a id = "authors"></a>
 - <a href="https://github.com/Soroosh-N">Soroosh Noorzad</a> [99205372][M.Sc.][Digital Electronics]
 - <a href="https://github.com/AFP1333">Abolfazl Fallah Pakdaman</a> [99205326][M.Sc.][Digital Electronics]
