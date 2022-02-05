@@ -75,7 +75,7 @@ net = cv2.dnn.readNetFromDarknet(config_Path, weights_Path)
 
 # load our input image and grab its spatial dimensions
 # Image to test:
-image_path = "test.png"
+image_path = "pics/test1.jpg"
 rgb = cv2.imread(image_path)
 rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
 rgb_display = np.copy(rgb)

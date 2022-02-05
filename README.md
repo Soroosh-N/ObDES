@@ -36,7 +36,27 @@ In the third part of the project we will use the produced pictures and the learn
 ### Prerequisites
 
 We need some libraries to be installed on the environment first. We used a python 3.8 library for the project.
+```
+General libs:
+  os,
+  sys,
+  time,
+  numpy,
+  shutil,
+  zipfile,
+  traceback,
+  progressbar,
+  urllib.request,
+  matplotlib.pyplot,
 
+To be installed:
+  cv2,
+  pillow,
+  tensorflow + keras,
+  PyQt5 (QtCore, QtGui, QtWidgets),
+...
+```
+Some packages version:
 ```
 Versions:
 OpenCV      => 4.5.5
